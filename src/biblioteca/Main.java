@@ -1,49 +1,44 @@
 package biblioteca;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
-        List<Sala> salas = List.of(
-            new Sala("A", "sala A", 2),
-            new Sala("B", "sala B", 4),
-            new Sala("C", "sala C", 6),
-            new Sala("D", "sala D", 8)
-        );
-        System.out.println("Salas de la biblioteca:");
-        salas.forEach(System.out::println);
+        var salas = new RepositorioSalasMemoria();
+        var reservas = new RepositorioReservasMemoria();
+        var fachada = new ReservaFacade(salas, reservas,
+            List.of(new NotificadorEstudiante(), new RegistroEventos()));
+        var porCapacidad = new SeleccionPorCapacidad();
+        var fecha = LocalDate.now().plusDays(7);
 
-        Reserva reserva = new ReservaBuilder()
-            .estudiante(new Estudiante("E001", "Laura"))
-            .fecha(java.time.LocalDate.now().plusDays(7))
-            .horaInicio(java.time.LocalTime.of(14, 0))
-            .duracionHoras(2)
-            .cantidadPersonas(4)
-            .sala(new Sala("B", "sala B", 4))
-            .build();
+        System.out.println("=== ESCENARIO PRINCIPAL ===");
+        Reserva laura = fachada.realizarReserva(new Estudiante("E001", "Laura"),
+            fecha, LocalTime.of(14, 0), 2, 4, porCapacidad).orElseThrow();
+        System.out.println(laura);
+        laura.cancelar();
+        System.out.println(laura);
+        try {
+            laura.confirmar();
+        } catch (IllegalStateException error) {
+            System.out.println("Operación rechazada: " + error.getMessage());
+        }
 
-        System.out.println(reserva);
+        System.out.println("\n=== SALA PREFERIDA ===");
+        fachada.realizarReserva(new Estudiante("E002", "Andrés"),
+            fecha.plusDays(1), LocalTime.of(10, 0), 2, 4,
+            new SeleccionSalaPreferida("C")).ifPresent(System.out::println);
 
-        // ESTACIÓN 4: PRUEBAS DEL PATRÓN STRATEGY
+        System.out.println("\n=== SOLICITUD PARA 10 PERSONAS ===");
+        fachada.realizarReserva(new Estudiante("E003", "Camila"),
+            fecha.plusDays(2), LocalTime.of(9, 0), 2, 10, porCapacidad);
 
-        List<Sala> disponibles = List.of(
-            new Sala("A", "Sala A", 2),
-            new Sala("B", "Sala B", 4),
-            new Sala("C", "Sala C", 6),
-            new Sala("D", "Sala D", 8)
-        );
-
-        EstrategiaSeleccionSala porCapacidad = new SeleccionPorCapacidad();
-        System.out.println("Para 4 personas: "
-        + porCapacidad.seleccionar(disponibles, 4).orElse(null));
-
-        EstrategiaSeleccionSala preferida = new SeleccionSalaPreferida("C");
-        System.out.println("Preferida C: "
-        + preferida.seleccionar(disponibles, 4).orElse(null));
-
-        EstrategiaSeleccionSala preferidaNoAdecuada = new SeleccionSalaPreferida("B");
-        System.out.println("Preferida B para 7: "
-        + preferidaNoAdecuada.seleccionar(disponibles, 7).orElse(null));
-
+        System.out.println("\n=== FINALIZACIÓN ===");
+        Reserva samuel = fachada.realizarReserva(new Estudiante("E004", "Samuel"),
+            fecha.plusDays(3), LocalTime.of(11, 0), 1, 2, porCapacidad).orElseThrow();
+        samuel.finalizar();
+        System.out.println(samuel);
+        System.out.println("Reservas registradas: " + reservas.obtenerTodas().size());
     }
 }
